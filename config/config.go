@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -42,6 +43,36 @@ type ErrUnableToParseInt struct {
 func (e ErrUnableToParseInt) Error() string {
 	return fmt.Sprintf(
 		"unable to parse .env variable '%s' with value '%s' as integer",
+		e.key,
+		e.raw,
+	)
+}
+
+// ErrUnableToParseDurationWithDefault is raises when converting a environment variable to duration raises an error.
+type ErrUnableToParseDurationWithDefault struct {
+	key    string
+	raw    string
+	defVal time.Duration
+}
+
+func (e ErrUnableToParseDurationWithDefault) Error() string {
+	return fmt.Sprintf(
+		"unable to parse .env variable '%s' with value '%s' as duration, setting to default '%d'",
+		e.key,
+		e.raw,
+		e.defVal,
+	)
+}
+
+// ErrUnableToParseDuration is raises when converting a environment variable to int raises an error
+type ErrUnableToParseDuration struct {
+	key string
+	raw string
+}
+
+func (e ErrUnableToParseDuration) Error() string {
+	return fmt.Sprintf(
+		"unable to parse .env variable '%s' with value '%s' as duration",
 		e.key,
 		e.raw,
 	)
@@ -121,4 +152,42 @@ func MustGetInt(key string) int {
 		)
 	}
 	return val
+}
+
+// GetDuration returns the environment variable as a second based duration, or the default value when undefined.
+func GetDuration(key string, defVal time.Duration) time.Duration {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return defVal
+	}
+
+	duration, err := time.ParseDuration(raw)
+	if err != nil {
+		log.Warn(
+			ErrUnableToParseDurationWithDefault{
+				key:    key,
+				raw:    raw,
+				defVal: defVal,
+			},
+		)
+	}
+
+	return duration
+}
+
+// MustGetDuration returns the environment variable as a duration, or logs a fatal error when undefined.
+func MustGetDuration(key string) time.Duration {
+	raw := os.Getenv(key)
+
+	duration, err := time.ParseDuration(raw)
+	if err != nil {
+		log.Fatal(
+			ErrUnableToParseDuration{
+				key: key,
+				raw: raw,
+			},
+		)
+	}
+
+	return duration
 }
