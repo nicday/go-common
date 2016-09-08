@@ -7,7 +7,7 @@ import (
 	"github.com/Sirupsen/logrus"
 )
 
-func init() {
+func Init() {
 	Log()
 	http.Handle("/version", Handler)
 }
