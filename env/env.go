@@ -1,4 +1,4 @@
-package config
+package env
 
 import (
 	"fmt"
@@ -6,10 +6,13 @@ import (
 	"strconv"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
-
+	"github.com/Sirupsen/logrus"
 	"github.com/joho/godotenv"
 )
+
+func init() {
+	InitEnv()
+}
 
 // ErrEnvVarNotFound is an error that is raised when an environment variable is missing.
 type ErrEnvVarNotFound string
@@ -80,18 +83,33 @@ func (e ErrUnableToParseDuration) Error() string {
 
 // InitEnv initializes the environment variables.
 func InitEnv() {
-	if IsTest() {
-		return
+	paths := []string{}
+
+	// Check to see if `.env` and `.env.default` exist before attempting to load environment vars from them.
+	if _, err := os.Stat(".env"); err == nil {
+		paths = append(paths, ".env")
+	}
+	if _, err := os.Stat(".env.default"); err == nil {
+		paths = append(paths, ".env.default")
 	}
 
 	// Load the environment variables first from `.env.default` and then from `.env`, allowing `.env` to override when
 	// necessary.
-	err := godotenv.Load(".env", ".env.default")
+	err := godotenv.Load(paths...)
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 
-	log.Infof("Environment: %s", Env())
+	logrus.Infof("Environment: %s", Env())
+}
+
+// InitEnvUnlessTest initializes the environment variables unless running in a test environment.
+func InitEnvUnlessTest(envs ...string) {
+	if IsTest() {
+		return
+	}
+
+	InitEnv()
 }
 
 // Get simply returns the environment variable as a string, or an empty string when undefined.
@@ -108,11 +126,20 @@ func GetString(key, defVal string) string {
 	return val
 }
 
+// GetBool returns the environment variable as a bool, or false when undefined or if it couldn't be parsed as a bool.
+func GetBool(key string) bool {
+	val, err := strconv.ParseBool(Get(key))
+	if err != nil {
+		return false
+	}
+	return val
+}
+
 // MustGetString returns the environment variable as a string, or logs a fatal error when undefined.
 func MustGetString(key string) string {
 	val := Get(key)
 	if val == "" {
-		log.Fatal(ErrEnvVarNotFound(key))
+		logrus.Fatal(ErrEnvVarNotFound(key))
 	}
 	return val
 }
@@ -125,7 +152,7 @@ func GetInt(key string, defVal int) int {
 	}
 	val, err := strconv.Atoi(raw)
 	if err != nil {
-		log.Warn(
+		logrus.Warn(
 			ErrUnableToParseIntWithDefault{
 				key:    key,
 				raw:    raw,
@@ -140,11 +167,11 @@ func GetInt(key string, defVal int) int {
 func MustGetInt(key string) int {
 	raw := os.Getenv(key)
 	if raw == "" {
-		log.Fatal(ErrEnvVarNotFound(key))
+		logrus.Fatal(ErrEnvVarNotFound(key))
 	}
 	val, err := strconv.Atoi(raw)
 	if err != nil {
-		log.Fatal(
+		logrus.Fatal(
 			ErrUnableToParseInt{
 				key: key,
 				raw: raw,
@@ -163,7 +190,7 @@ func GetDuration(key string, defVal time.Duration) time.Duration {
 
 	duration, err := time.ParseDuration(raw)
 	if err != nil {
-		log.Warn(
+		logrus.Warn(
 			ErrUnableToParseDurationWithDefault{
 				key:    key,
 				raw:    raw,
@@ -181,7 +208,7 @@ func MustGetDuration(key string) time.Duration {
 
 	duration, err := time.ParseDuration(raw)
 	if err != nil {
-		log.Fatal(
+		logrus.Fatal(
 			ErrUnableToParseDuration{
 				key: key,
 				raw: raw,

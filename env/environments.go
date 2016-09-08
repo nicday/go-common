@@ -1,4 +1,4 @@
-package config
+package env
 
 import "os"
 
@@ -9,7 +9,7 @@ func Env() string {
 
 // IsDev returns true when the environment is `dev`
 func IsDev() bool {
-	return Env() == "dev"
+	return Env() == "development"
 }
 
 // IsTest returns true when the environment is `test`
@@ -19,5 +19,5 @@ func IsTest() bool {
 
 // IsProd returns true when the environment is `prod`
 func IsProd() bool {
-	return Env() == "prod"
+	return Env() == "production"
 }
