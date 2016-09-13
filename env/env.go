@@ -1,17 +1,60 @@
 package env
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/joho/godotenv"
 )
 
-func init() {
-	InitEnv()
+// InitEnv initializes the environment variables.
+func InitEnv() {
+	paths := []string{}
+
+	// Check to see if `.env` and `.env.default` exist before attempting to load environment vars from them.
+	if _, err := os.Stat(".env"); err == nil {
+		paths = append(paths, ".env")
+	}
+	if _, err := os.Stat(".env.default"); err == nil {
+		paths = append(paths, ".env.default")
+	}
+
+	// Load the environment variables first from `.env.default` and then from `.env`, allowing `.env` to override when
+	// necessary.
+	err := godotenv.Load(paths...)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	logrus.Infof("Environment: %s", Env())
+}
+
+func LoadFromJSON(path string) {
+	byt, err := ioutil.ReadFile(path)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	var data map[string]interface{}
+
+	if err := json.Unmarshal(byt, &data); err != nil {
+		panic(err)
+	}
+
+	for k, val := range data {
+		if !strings.HasPrefix(k, "_") {
+			switch v := val.(type) {
+			case string:
+				os.Setenv(k, v)
+			}
+		}
+	}
 }
 
 // ErrEnvVarNotFound is an error that is raised when an environment variable is missing.
@@ -79,28 +122,6 @@ func (e ErrUnableToParseDuration) Error() string {
 		e.key,
 		e.raw,
 	)
-}
-
-// InitEnv initializes the environment variables.
-func InitEnv() {
-	paths := []string{}
-
-	// Check to see if `.env` and `.env.default` exist before attempting to load environment vars from them.
-	if _, err := os.Stat(".env"); err == nil {
-		paths = append(paths, ".env")
-	}
-	if _, err := os.Stat(".env.default"); err == nil {
-		paths = append(paths, ".env.default")
-	}
-
-	// Load the environment variables first from `.env.default` and then from `.env`, allowing `.env` to override when
-	// necessary.
-	err := godotenv.Load(paths...)
-	if err != nil {
-		logrus.Fatal(err)
-	}
-
-	logrus.Infof("Environment: %s", Env())
 }
 
 // InitEnvUnlessTest initializes the environment variables unless running in a test environment.
